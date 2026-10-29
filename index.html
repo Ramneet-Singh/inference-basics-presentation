@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Inference Primer · Proximal</title>
+<style>
+:root{
+ --paper:#f5f3ec;
+ --ink:#202d2a;
+ --memory:#13796d;
+ --compute:#bf5935;
+ --muted:color-mix(in srgb,var(--ink) 68%,var(--paper));
+ --line:color-mix(in srgb,var(--ink) 18%,var(--paper));
+ --neutralLight:color-mix(in srgb,var(--ink) 6%,var(--paper));
+ --memoryLight:color-mix(in srgb,var(--memory) 22%,var(--paper));
+ --computeLight:color-mix(in srgb,var(--compute) 16%,var(--paper));
+ --kv:var(--memory);
+ --kvLight:var(--memoryLight);
+ --white:var(--paper);
+ --text-detail:18px;
+ --text-body:26px;
+ --text-display:56px;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:var(--text-detail);overflow:hidden}button,input,select{font:inherit}button,select{color:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--compute);outline-offset:4px}button{border:1px solid var(--line);background:transparent;padding:9px 15px;border-radius:5px}button:hover{background:var(--neutralLight)}button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}button:disabled{opacity:.35;cursor:default}a{color:var(--memory)}[hidden]{display:none!important}
+header{height:64px;padding:0 30px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{font-size:var(--text-detail);letter-spacing:2px;font-weight:700}.brand span{color:var(--muted);font-size:var(--text-detail);letter-spacing:1.5px;margin-left:20px;font-weight:400}.tools{display:flex;gap:8px}.tools button{font-size:var(--text-detail);padding:7px 11px}#viewport{position:absolute;inset:0 18px 62px;display:flex;justify-content:center;align-items:center}#stage{width:1440px;height:810px;flex-shrink:0;transform-origin:center;position:relative;overflow:hidden;padding:48px 64px 36px;background:var(--paper)}.eyebrow{font:var(--text-detail) 'SFMono-Regular',Consolas,monospace;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}.slide-title{font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif;font-weight:400;font-size:var(--text-display);letter-spacing:-1.6px;line-height:1.05;margin:0 0 36px}.lede{font-size:var(--text-body);line-height:1.6;margin:0;max-width:1190px}.content{margin-top:42px}.memory{color:var(--memory)}.compute{color:var(--compute)}.kv{color:var(--kv)}.muted{color:var(--muted)}.mono,.formula{font-family:'SFMono-Regular',Consolas,monospace}.formula{font-size:var(--text-body);line-height:1.6;letter-spacing:-1px}.formula.big{font-size:var(--text-display)}.formula.small{font-size:var(--text-body)}.frac{display:inline-flex;flex-direction:column;text-align:center;vertical-align:middle;line-height:1.25;margin:0 8px}.frac>span:first-child{border-bottom:1px solid;padding:0 10px 5px}.frac>span:last-child{padding:5px 10px 0}.sub{font-size:var(--text-detail);vertical-align:sub}.sup{font-size:var(--text-detail);vertical-align:super}.footnote{font-size:var(--text-detail);color:var(--muted);line-height:1.5}.slide-foot{position:absolute;bottom:34px;left:64px;right:64px;border-top:1px solid var(--line);padding-top:15px;display:flex;justify-content:space-between;gap:30px;align-items:center;font-size:var(--text-detail);color:var(--muted)}.slide-foot strong{color:var(--ink);font-weight:400}.two{display:grid;grid-template-columns:1.1fr 1fr;gap:50px;align-items:center}.rule{border-top:1px solid var(--line);margin:30px 0}.label{font-size:var(--text-detail);text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.stat{font-family:'Iowan Old Style',Georgia,serif;font-size:var(--text-display);line-height:1.1}.stats{display:flex;gap:65px}.stats>div{flex:1}.stat-label{font-size:var(--text-detail);margin-top:16px;color:var(--muted)}.controls{display:flex;gap:20px;align-items:center;margin:28px 0;font-size:var(--text-detail)}.controls label{display:flex;gap:14px;align-items:center}.controls input[type=range]{accent-color:var(--memory);width:240px;cursor:pointer}.controls select{padding:8px;border:1px solid var(--line);background:var(--white);max-width:260px}.controls output{min-width:60px;font-family:monospace;font-size:var(--text-detail)}.pill-label{font-size:var(--text-detail);color:var(--muted);text-transform:uppercase;letter-spacing:1px}.value-row{display:flex;justify-content:space-between;align-items:baseline;padding:20px 0;border-bottom:1px solid var(--line);font-size:var(--text-body)}.value-row strong{font-family:monospace;font-size:var(--text-body);font-weight:400}.value-row.total{border-bottom:2px solid var(--ink)}.caption{font-size:var(--text-detail);line-height:1.5}.legend{display:flex;gap:25px;font-size:var(--text-detail);color:var(--muted);align-items:center}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:currentColor}.tokens{display:flex;gap:9px;align-items:center}.token{border:1px solid var(--line);padding:17px 15px;min-width:60px;text-align:center;font-family:monospace;font-size:var(--text-detail);background:var(--white);border-radius:4px}.token.new{background:var(--computeLight);border-color:var(--compute);color:var(--compute)}.token.saved{background:var(--kvLight);border-color:var(--kv);color:var(--kv)}.token.dim{opacity:.28}.token.hot{background:var(--memoryLight);border-color:var(--memory);color:var(--memory)}.step-btn{background:var(--ink);color:var(--paper);border-color:var(--ink);font-size:var(--text-detail)}.step-btn:hover{background:var(--ink)}.number{font-family:monospace;color:var(--muted);font-size:var(--text-detail)}.small-table{width:100%;border-collapse:collapse;font-size:var(--text-detail)}.small-table th{font-size:var(--text-detail);letter-spacing:.5px;color:var(--muted);font-weight:400;text-align:right;padding:10px 8px;border-bottom:1px solid var(--line)}.small-table th:first-child,.small-table td:first-child{text-align:left}.small-table td{padding:15px 8px;text-align:right;border-bottom:1px solid var(--line)}.small-table tr.selected td{background:var(--memoryLight)}.small-table tbody tr{cursor:pointer}.small-table tbody tr:hover td{background:var(--neutralLight)}.small-table .hardware-note{font-size:var(--text-detail);display:block;color:var(--muted);margin-top:4px}.mini{font-size:var(--text-detail)}.chain{display:flex;align-items:center;gap:18px}.block{padding:24px 28px;border:1.5px solid var(--ink);font-size:var(--text-body);text-align:center;position:relative}.block .shape{font:var(--text-detail) monospace;display:block;margin-top:14px;color:var(--muted)}.arrow{font-family:monospace;color:var(--muted);font-size:var(--text-body)}.square-grid{display:grid;gap:4px}.square-grid i{background:var(--memoryLight);display:block;border:1px solid var(--memoryLight);border-radius:2px}.square-grid i.active{background:var(--memory);border-color:var(--memory)}svg{display:block;width:100%;height:auto;max-width:100%;overflow:visible}svg text{font-family:Arial,Helvetica,sans-serif;fill:var(--muted)}svg .mono{font-family:monospace}svg .memory{fill:var(--memory)}svg .compute{fill:var(--compute)}svg .kv{fill:var(--kv)}.heatmap{display:grid;gap:5px;grid-template-columns:repeat(8,34px)}.heatmap span{height:34px;display:block;background:var(--memoryLight);border-radius:2px}.heatmap span.masked{background:var(--neutralLight)}.heatmap span.active{background:var(--memory)}.bracket{border-left:2px solid var(--line);padding:12px 0 12px 22px}.phase{display:grid;grid-template-columns:180px 1fr;gap:25px;align-items:center;margin-bottom:20px}.phase-label{font-size:var(--text-detail)}.growbar{height:34px;background:var(--memoryLight);position:relative}.growbar>div{background:var(--memory);height:100%;transition:width .25s}.budget{display:grid;grid-template-columns:200px 1fr 150px;gap:15px;align-items:center;margin:23px 0;font-size:var(--text-detail)}.budget .bar{height:39px;display:flex;min-width:2px}.budget .bar>span{height:100%;display:block}.callout{font-size:var(--text-body);border-left:3px solid var(--compute);padding:6px 0 6px 24px;margin-top:27px}.list-row{display:grid;grid-template-columns:75px 350px 1fr;align-items:center;gap:20px;padding:34px 0;border-top:1px solid var(--line);font-size:var(--text-body)}.list-row .index{font-family:Georgia,serif;font-size:var(--text-display);color:var(--muted)}.list-row .description{font-size:var(--text-detail);color:var(--muted)}
+footer{position:absolute;bottom:0;height:61px;left:0;right:0;padding:0 30px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:var(--text-detail);color:var(--muted)}.navigation{display:flex;align-items:center;gap:16px}.navigation button{padding:5px 14px;font-size:var(--text-detail);line-height:1.2}#progress{position:absolute;top:-2px;left:0;height:2px;background:var(--memory);transition:width .25s}.hint{letter-spacing:.5px}.dialog{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 40%,transparent);z-index:9;padding:40px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}.dialog-inner{background:var(--white);padding:32px 38px;max-width:1000px;width:100%;max-height:calc(100vh - 80px);overflow:auto;box-shadow:0 20px 80px color-mix(in srgb,var(--ink) 20%,transparent);border-radius:7px}.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:30px;margin-bottom:22px}.dialog-head h2{margin:0;font:var(--text-body) Georgia,serif}.dialog-head button{padding:6px 12px}.dialog-inner p,.dialog-inner li{line-height:1.7;font-size:var(--text-detail)}.source-links{font-size:var(--text-detail);margin:16px 0}.source-links a{display:block;margin-top:9px}.source-heading{color:var(--memory);font:var(--text-detail) monospace;letter-spacing:1px;text-transform:uppercase}#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 24px;border-radius:5px;z-index:20;font-size:var(--text-detail)}.blanked #stage{visibility:hidden}.blanked{background:var(--ink)}.blanked header,.blanked footer{opacity:.15}.sr-only{position:absolute;left:-10000px}body.no-motion *{transition:none!important;animation:none!important}@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}@media(max-width:700px){header{padding:0 12px;height:54px}.brand{font-size:var(--text-detail)}.brand span{display:none}.tools{gap:3px}.tools button{padding:6px;font-size:var(--text-detail)}#viewport{inset:0 6px 60px}footer{padding:0 12px}.hint{display:none}.dialog{padding:12px}.dialog-inner{padding:22px;max-height:95vh}}@media print{@page{size:16in 9in;margin:0}body{overflow:visible}header,footer,.dialog{display:none!important}#viewport{position:static;display:block}#stage{display:none}.print-slide{width:1440px;height:810px;position:relative;padding:48px 64px 36px;page-break-after:always;background:var(--paper);overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-slide .controls,.print-slide button{display:none}.print-slide:last-child{page-break-after:auto}}
+
+/* Three type sizes also cover semantic subscripts and browser defaults. */
+sub,sup{font-size:var(--text-detail)}
+@media(max-width:1150px){.brand span{display:none}}
+#stage.cover,.print-slide.cover{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.cover .slide-title{margin-bottom:36px}
+.cover .lede{color:var(--memory)}
+.cover-credit{font-size:var(--text-body);color:var(--muted);line-height:1.6;margin:44px 0 0;display:flex;flex-direction:column;gap:14px}
+.hint-short{display:none}
+footer{gap:20px}.navigation{flex-shrink:0}#counter{white-space:nowrap}
+@media(max-width:1250px){.hint{display:block}.hint-long{display:none}.hint-short{display:inline}}
+.roofline-definitions,.roofline-body{display:grid;grid-template-columns:1fr 1.25fr;column-gap:48px}
+.roofline-definitions>div:first-child,.roofline-body>div:first-child{order:2}
+.roofline-definitions{margin:44px 0 56px;align-items:center;text-align:center}
+.roofline-body{align-items:start}
+.roofline-slider{display:grid;grid-template-columns:54px 240px 54px;gap:16px;justify-content:center;align-items:center;margin:24px 4.347826% 0 13.043478%;font-size:var(--text-detail)}
+.roofline-slider label{text-align:right}
+.roofline-slider input{width:240px;margin:0;accent-color:var(--memory);cursor:pointer}
+.roofline-slider output{font-family:monospace;text-align:left}
+.architecture-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:48px;align-items:center;margin-top:44px}
+.architecture-image{margin:0;min-width:0}
+.architecture-image img{display:block;width:100%;height:auto;max-height:570px;object-fit:contain}
+.architecture-image figcaption{font-size:var(--text-detail);line-height:1.5;color:var(--muted);margin-bottom:22px}
+.architecture-summary-heading{font-size:var(--text-detail);line-height:1.5;color:var(--muted);margin:0 0 30px}
+.architecture-summary dl{margin:0}
+.architecture-summary dl>div+div{margin-top:28px}
+.architecture-summary dt{font-size:var(--text-body);line-height:1.25;color:var(--ink)}
+.architecture-summary dd{font-size:var(--text-detail);line-height:1.5;color:var(--muted);margin:8px 0 0}
+.sm-architecture-layout{grid-template-columns:420px 360px;gap:120px;justify-content:center}
+.sm-diagram-window{position:relative;width:420px;aspect-ratio:415/583;overflow:hidden}
+.sm-diagram-window img{position:absolute;width:289.1566265%;height:auto;max-height:none;left:-25.3012048%;top:-14.7512864%}
+.matrix-content{margin-top:84px}
+.matrix-illustration{justify-content:center;gap:35px}
+.matrix-illustration .label{margin-bottom:15px}
+.matrix-shape{margin-top:24px}
+.matrix-count-result{display:flex;justify-content:space-between;align-items:center;gap:36px;margin-top:50px}
+.matrix-reuse-controls{display:flex;justify-content:space-between;align-items:center;gap:48px;margin-top:34px}
+.matrix-reuse-controls .controls{margin:0}
+.matrix-reuse-result{display:flex;justify-content:space-between;align-items:center;gap:48px;margin-top:30px}
+.matrix-intensity-result{min-width:240px;text-align:center}
+.matrix-intensity-result .footnote{margin-top:8px}
+.matrix-reuse-controls>.footnote,.matrix-reuse-controls .controls,.matrix-reuse-controls output,.matrix-intensity-result .footnote{font-size:var(--text-body)}
+.attention-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:48px;align-items:center;margin-top:58px}
+.attention-column-headings,.attention-operation{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;align-items:center}
+.attention-column-headings{font-size:var(--text-detail);color:var(--muted);line-height:1.5}
+.attention-operation{margin-top:22px}
+.attention-build-control{margin-top:28px;justify-content:flex-end}
+.attention-mask{justify-self:center}
+.attention-mask .label{margin-bottom:22px}
+.attention-mask .heatmap span{display:flex;align-items:center;justify-content:center;font-size:var(--text-detail);color:var(--ink)}
+.attention-mask .heatmap span.active{color:var(--paper)}
+.attention-mask .footnote{margin-top:24px}
+.attention-total{margin-top:28px}
+.attention-weights{margin-top:18px}
+.mlp-summary{display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px;margin-top:32px}
+.transformer-totals{margin-top:110px;display:flex;flex-direction:column;gap:100px}
+.total-heading{font-size:var(--text-body);margin-bottom:28px}
+.inference-regime{display:flex;justify-content:space-between;align-items:center;margin-top:58px;font-size:var(--text-body)}
+.inference-diagram{margin-top:48px}
+.kv-simple{margin-top:100px}
+.kv-simple-formula{margin-top:56px;text-align:center}
+.kv-datatype{font-family:Arial,Helvetica,sans-serif;font-size:var(--text-detail);margin-left:20px;color:var(--muted)}
+.beyond-simple{margin-top:70px;display:flex;flex-direction:column;gap:34px}
+.beyond-topic{display:flex;align-items:center;gap:64px;font-size:var(--text-body);line-height:1.5}
+.beyond-topic svg{width:520px;flex:none}
+
+/* Hide presentation controls only while fullscreen. */
+:fullscreen footer{display:none}
+:fullscreen #viewport{inset:0}
+#stage:focus{outline:none}
+.performance-content{width:1100px;max-width:100%;margin:60px auto 0}
+.performance-result{display:flex;justify-content:center;align-items:center;margin-top:48px}
+</style>
+</head>
+<body>
+<main id="viewport"><article id="stage" tabindex="0" aria-live="polite" aria-label="Presentation slide"></article></main>
+<footer><div id="progress"></div><div class="hint"><span class="hint-long">← → SLIDES &nbsp; SPACE BUILD &nbsp; S SOURCES &nbsp; F FULLSCREEN</span><span class="hint-short" title="Arrow keys: slides; Space: build; S: sources; F: fullscreen">←/→ &nbsp; SPACE &nbsp; S &nbsp; F</span></div><div class="navigation"><button id="prev" aria-label="Previous slide">‹</button><span id="counter"></span><button id="next" aria-label="Next slide">›</button></div></footer>
+<div class="dialog" id="dialog" hidden role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="dialog-inner"><div class="dialog-head"><h2 id="dialog-title"></h2><button id="close-dialog" aria-label="Close dialog">Esc ×</button></div><div id="dialog-content"></div></div></div><div id="toast" hidden></div>
+<script>
+'use strict';
+// Layout and interaction code are embedded. Reference images are local assets.
+const C=Object.fromEntries(['ink','muted','line','memory','memoryLight','compute','computeLight','kv','kvLight'].map(name=>[name,'var(--'+name+')']));
+const sources={
+ gpu:['GPU execution model','https://mlc.ai/modern-gpu-programming-for-mlsys/chapter_background/index.html'],
+ roof:['What makes a kernel fast','https://mlc.ai/modern-gpu-programming-for-mlsys/chapter_performance/index.html'],
+ kvflow:['KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows','https://arxiv.org/pdf/2507.07400'],
+ math:['All the Transformer Math You Need to Know','https://github.com/jax-ml/scaling-book/blob/main/transformers.md'],
+ podcast:['Dwarkesh Patel × Reiner Pope · transcript','https://gist.github.com/dwarkeshsp/79100f0fdeed69d76241903bb0604dbe'],
+ a100:['NVIDIA A100 specifications','https://www.nvidia.com/en-us/data-center/a100/'],
+ h100FullImage:['NVIDIA full GH100 architecture image','https://developer-blogs.nvidia.com/wp-content/uploads/2022/03/Full-H100-GPU-with-144-SMs.png'],
+ h100SmImage:['Hopper SM architecture image from HardwareZone','https://www.hardwarezone.com.sg/files/img/2022/04/H100_Hopper_SM_architecture.jpg'],
+ hopperTuning:['NVIDIA Hopper tuning guide: shared memory and registers','https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html'],
+ hopper:['NVIDIA Hopper architecture: SM and Tensor Core counts','https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/'],
+ b200:['NVIDIA HGX specifications: dense BF16 throughput','https://www.nvidia.com/en-au/data-center/hgx/'],
+ b200Memory:['NVIDIA DGX B200 specifications: HBM bandwidth','https://www.nvidia.com/en-us/data-center/dgx-b200/'],
+ h100:['NVIDIA H100 specifications','https://www.nvidia.com/en-us/data-center/h100/'],
+ tpu:['Google TPU v5e specifications','https://docs.cloud.google.com/tpu/docs/v5e'],
+ cpu:['Intel Xeon Platinum 8480+ specifications','https://www.intel.com/content/www/us/en/products/sku/231746/intel-xeon-platinum-8480-processor-105m-cache-2-00-ghz/specifications.html'],
+ amx:['Intel AMX throughput per core','https://www.intel.co.jp/content/dam/www/central-libraries/us/en/documents/2023-02/meituan-accelerates-vision-ai-inference-services-and-optimizes-costs.pdf']
+};
+const hardware=[
+ {name:'A100 80GB GPU',short:'A100',datatype:'BF16',p:312,w:2.039,cap:80e9,note:'GPU'},
+ {name:'H100 GPU',short:'H100',datatype:'BF16',p:989.5,w:3.35,cap:80e9,note:'GPU'},
+ {name:'B200 GPU',short:'B200',datatype:'BF16',p:2250,w:8,cap:180e9,note:'GPU'},
+ {name:'Xeon 8480+',short:'Xeon 8480+',datatype:'FP32',p:56*2e9*64/1e12,w:8*4.8e9*8/1e12,cap:512e9,note:'CPU'}
+];
+const M={L:32,d:4096,f:11008,nq:32,nkv:8,h:128,V:32000,bw:2,bkv:2};
+const coreParams=M.L*(3*M.d*M.f+2*M.d*(M.nq+M.nkv)*M.h);
+const headParams=M.d*M.V;
+const P=coreParams+headParams;
+const kvPerToken=2*M.L*M.nkv*M.h*M.bkv;
+const weightBytes=P*M.bw;
+const state={slide:Math.max(0,Math.min(14,(parseInt(location.hash.slice(1),10)||1)-1)),hw:2,intensity:50,reuse:64,matStep:0,attentionStep:0,prefillStep:0,decodeStep:0,kvContext:8192,kvHeads:8,context:8192,batch:1,batchContext:8192,dialog:null};
+const fmt=(n,d=1)=>Number(n).toLocaleString('en-US',{maximumFractionDigits:d});
+const frac=(a,b)=>`<span class="frac"><span>${a}</span><span>${b}</span></span>`;
+const svg=(body,w=1200,h=380)=>`<svg viewBox="0 0 ${w} ${h}" role="img">${body}</svg>`;
+const textSize=size=>size>=40?56:size>=23?26:18;
+const txt=(x,y,t,size=18,color=C.muted,anchor='start')=>`<text x="${x}" y="${y}" font-size="${textSize(size)}" style="fill:${color}" text-anchor="${anchor}">${t}</text>`;
+const line=(x1,y1,x2,y2,color=C.line,width=1,dash='')=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+const rect=(x,y,w,h,fill,stroke='none',r=3)=>`<rect x="${x}" y="${y}" width="${Math.max(.2,w)}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}"/>`;
+const foot=(left,right='')=>`<div class="slide-foot"><span>${left}</span><span>${right}</span></div>`;
+const opts=(selected=state.hw)=>hardware.map((h,i)=>`<option value="${i}" ${i===selected?'selected':''}>${h.name}</option>`).join('');
+function roofPlot(I=state.intensity,hw=state.hw,w=690,h=350,extra=false){
+ const H=hardware[hw],R=H.p/H.w,x0=90,x1=w-30,y0=h-55,y1=30;
+ const X=i=>x0+Math.log10(Math.max(.5,i)/.5)/Math.log10(20000)*(x1-x0),Y=u=>y0-u*(y0-y1);
+ let out='';[0,.25,.5,.75,1].forEach(u=>{out+=line(x0,Y(u),x1,Y(u))+txt(x0-12,Y(u)+5,`${u*100}%`,18,C.muted,'end')});
+ [.5,1,10,100,1000,10000].forEach(i=>out+=txt(X(i),y0+25,fmt(i,1),18,C.muted,'middle'));
+ out+=line(x0,y0,x1,y0,C.ink)+line(x0,y1,x0,y0,C.ink);
+ let points=[];for(let i=0;i<=180;i++){const ai=.5*20000**(i/180);points.push(`${X(ai)},${Y(Math.min(1,ai/R))}`)}
+ out+=`<polyline points="${points.join(' ')}" fill="none" stroke="${C.memory}" stroke-width="4"/>`;
+ out+=line(X(R),y0,X(R),Y(1),C.muted,1,'5 5')+txt(X(R)+8,Y(1)+26,`R ≈ ${Math.round(R)}`,18,C.memory);
+ out+=txt((x0+x1)/2,h-5,'Arithmetic intensity I · FLOP/byte',18,C.ink,'middle');
+ out+=`<text x="18" y="${(y0+y1)/2}" transform="rotate(-90 18 ${(y0+y1)/2})" text-anchor="middle" font-size="18" style="fill:${C.ink}">Compute utilization ceiling</text>`;
+ if(extra){[[1,C.compute,'Decode'],[1000,C.kv,'Prefill matmuls']].forEach(([i,c,label])=>{out+=`<circle cx="${X(i)}" cy="${Y(Math.min(1,i/R))}" r="7" fill="${c}"/>`+txt(X(i)+9,Y(Math.min(1,i/R))-13,label,18,c)})}
+ else {const u=Math.min(1,I/R);out+=line(X(I),y0,X(I),Y(u),C.compute,1,'3 4')+`<circle cx="${X(I)}" cy="${Y(u)}" r="7" fill="${C.compute}" stroke="${C.computeLight}" stroke-width="4"/>`;}
+ return svg(out,w,h);
+}
+function timeline(m,c,y,label){let x=300,cy=y+48,out=txt(0,y+30,label,23,C.ink);for(let k=0;k<4;k++){let mx=x+k*Math.max(m,c);let cx=x+m+k*Math.max(m,c);out+=rect(mx,y-12,m-5,30,C.memoryLight)+rect(cx,cy-12,c-5,30,C.computeLight)+txt(mx+(m-5)/2,y+9,`m${k}`,18,C.memory,'middle')+txt(cx+(c-5)/2,cy+9,`c${k}`,18,C.compute,'middle')+line(mx+m-5,y+18,cx,cy-12,C.line)}out+=line(x,y+92,x+4*Math.max(m,c)+m,y+92);return out;}
+function matrixIllustration(mode=3,rows=3){
+ const grid=(count,cols,width,height,color,light,active)=>`<div class="square-grid" style="grid-template-columns:repeat(${cols},${width}px)">${Array.from({length:count},(_,i)=>`<i style="height:${height}px;background:${active(i)?color:light};border-color:${light}"></i>`).join('')}</div>`;
+ const A=grid(12,4,48,43,C.memory,C.memoryLight,i=>mode===0?i===0:mode<3?i<4:i<rows*4);
+ const W=grid(20,5,43,31,C.compute,C.computeLight,i=>mode===0?i===0:mode===1?i%5===0:true);
+ const Y=grid(15,5,43,43,C.memory,C.memoryLight,i=>mode<2?i===0:mode===2?i<5:i<rows*5);
+ return `<div class="chain matrix-illustration"><div><div class="label">Activations · A</div>${A}<div class="formula small matrix-shape">m × k</div></div><span class="formula big">×</span><div><div class="label">Weights · W</div>${W}<div class="formula small matrix-shape">k × n</div></div><span class="formula big">=</span><div><div class="label">Output · Y</div>${Y}<div class="formula small matrix-shape">m × n</div></div></div>`;
+}
+
+function inferenceFlow(decode){
+ const token=(x,y,w,label,kind='memory')=>rect(x,y,w,58,kind==='compute'?C.computeLight:C.memoryLight,kind==='compute'?C.compute:C.memory)+txt(x+w/2,y+36,label,18,kind==='compute'?C.compute:C.memory,'middle');
+ const arrow=(x1,y1,x2,y2,color=C.ink)=>line(x1,y1,x2,y2,color,2)+`<path d="M ${x2-6},${y2-7} L ${x2},${y2} L ${x2+6},${y2-7}" fill="none" stroke="${color}" stroke-width="2" transform="rotate(${Math.atan2(y2-y1,x2-x1)*180/Math.PI-90} ${x2} ${y2})"/>`;
+ let out='';
+ if(!decode){
+  out+=txt(10,74,'Prompt',26,C.ink);
+  out+=['The','best','way','to','learn','is'].map((word,i)=>token(195+i*104,38,92,word)).join('');
+  out+=arrow(500,108,500,170);
+  out+=rect(195,184,612,96,C.computeLight,C.compute)+txt(501,224,'All layers',26,C.ink,'middle')+txt(501,257,'S × d',18,C.muted,'middle');
+  out+=arrow(819,232,970,232)+token(990,203,150,'doing','compute')+txt(1065,179,'First output',18,C.muted,'middle');
+  out+=arrow(500,292,500,352,C.memory)+txt(10,409,'Saved K, V',26,C.memory);
+  out+=Array.from({length:6},(_,i)=>token(195+i*104,373,92,'KV'+i)).join('');
+ }else{
+  out+=txt(10,74,'Cached K, V',26,C.memory);
+  out+=Array.from({length:6},(_,i)=>token(245+i*91,38,79,'KV'+i)).join('');
+  out+=token(914,38,140,'new KV')+txt(984,24,'Append',18,C.memory,'middle');
+  out+=arrow(525,108,525,218,C.memory)+txt(548,166,'Read',18,C.memory);
+  out+=line(750,268,984,268,C.memory,2)+arrow(984,268,984,108,C.memory);
+  out+=token(72,239,150,'doing','compute')+txt(147,215,'Latest token',18,C.muted,'middle');
+  out+=arrow(234,268,393,268);
+  out+=rect(405,220,340,96,C.computeLight,C.compute)+txt(575,260,'All layers',26,C.ink,'middle')+txt(575,293,'Read weights',18,C.muted,'middle');
+  out+=arrow(575,328,575,389)+token(500,403,150,'it','compute')+txt(675,440,'Next token',18,C.muted);
+ }
+ return svg(out,1240,465);
+}
+
+function beyondIllustration(topic){
+ const arrow=(x1,y1,x2,y2,color=C.ink)=>line(x1,y1,x2,y2,color,2)+`<path d="M ${x2-7},${y2-5} L ${x2},${y2} L ${x2-7},${y2+5}" fill="none" stroke="${color}" stroke-width="2"/>`;
+ let out='';
+ if(topic==='conversations'){
+  [12,55,98].forEach((y,i)=>{out+=`<path d="M 7 ${y} H 125 V ${y+28} H 28 L 15 ${y+36} V ${y+28} H 7 Z" fill="${C.memoryLight}" stroke="${C.memory}"/>`+txt(66,y+20,'Chat '+['A','B','C'][i],18,C.memory,'middle')+line(136,y+14,186,y+14,C.memory,2)});
+  out+=line(186,26,186,112,C.memory,2)+arrow(186,69,239,69,C.memory);
+  out+=rect(250,34,140,70,C.computeLight,C.compute)+txt(320,77,'Model',26,C.ink,'middle')+txt(211,136,'Batch',18,C.muted,'middle');
+  out+=line(402,69,426,69,C.ink,2)+line(426,26,426,112,C.ink,2);
+  [12,55,98].forEach((y,i)=>out+=arrow(426,y+14,455,y+14)+rect(465,y,42,28,C.computeLight,C.compute)+txt(486,y+20,['a','b','c'][i],18,C.compute,'middle'));
+ }else if(topic==='tokens'){
+  out+=txt(66,22,'Draft',18,C.muted,'middle');
+  [0,49,98].forEach((x,i)=>out+=rect(x+7,45,39,38,C.computeLight,C.compute)+txt(x+26.5,70,'t'+['₁','₂','₃'][i],18,C.compute,'middle'));
+  out+=arrow(158,64,214,64)+txt(297,22,'Target model',18,C.muted,'middle')+rect(226,35,142,58,'none',C.ink)+txt(297,73,'Verify',26,C.ink,'middle')+arrow(380,64,408,64);
+  [418,454,490].forEach((x,i)=>out+=rect(x,45,29,38,i<2?C.memoryLight:C.computeLight,i<2?C.memory:C.compute)+txt(x+14.5,70,i<2?'✓':'×',18,i<2?C.memory:C.compute,'middle'));
+ }else{
+  [0,190,380].forEach((x,i)=>{
+   out+=txt(x+70,22,'GPU '+i,18,C.ink,'middle')+rect(x,40,140,67,C.computeLight,C.ink,0);
+   [54,69,84].forEach(y=>out+=rect(x+17,y,106,7,C.compute,C.compute,0));
+   [50,67,84,101].forEach(y=>out+=line(x-5,y,x,y,C.ink,2)+line(x+140,y,x+145,y,C.ink,2));
+   [25,55,85,115].forEach(dx=>out+=line(x+dx,35,x+dx,40,C.ink,2)+line(x+dx,107,x+dx,112,C.ink,2));
+   out+=txt(x+70,136,['Layers 1–11','Layers 12–22','Layers 23–32'][i],18,C.muted,'middle');
+   if(i<2)out+=arrow(x+150,74,x+179,74,C.memory);
+  });
+ }
+ return svg(out,520,145);
+}
+
+const slides=[
+ {title:'LLM Inference Primer',cover:true,render(){return `<p class="cover-credit"><span>Ramneet Singh</span><span>Proximal · 29th October 2026</span></p>`}},
+ {title:'Performance Mental Model',render(){return `<div class="performance-content">${svg(timeline(150,65,25,'Memory bound')+timeline(65,150,200,'Compute bound')+timeline(115,115,375,'Balanced'),1100,490)}<div class="performance-result"><div class="formula">Δt<span class="sub">steady state</span> ≈ max(t<span class="sub memory">memory</span>, t<span class="sub compute">compute</span>)</div></div></div>`}},
+ {title:'Roofline Analysis',render(){return `<div class="roofline-definitions"><div class="formula small">I = ${frac('FLOPs','bytes')}</div><div class="formula small">R = ${frac('peak FLOP/s','bytes/s')}</div></div><div class="roofline-body"><div>${roofPlot()}<div class="roofline-slider"><label for="intensity">I</label><input id="intensity" aria-label="Arithmetic intensity" type="range" min="0" max="400" value="${Math.round(Math.log10(state.intensity)*100)}"><output>${fmt(state.intensity,0)}</output></div></div><div><table class="small-table"><thead><tr><th>Device</th><th>R</th><th>TFLOP/s</th><th>TB/s</th></tr></thead><tbody>${hardware.map((h,i)=>`<tr tabindex="0" role="button" data-hw="${i}" aria-label="Select ${h.name}" class="${i===state.hw?'selected':''}"><td>${h.short}<span class="hardware-note">${h.note}</span></td><td>${fmt(h.p/h.w,0)}</td><td style="white-space:nowrap">${fmt(h.p,h.p<10?2:0)} <span class="muted">${h.datatype}</span></td><td>${fmt(h.w,3)}</td></tr>`).join('')}</tbody></table></div></div>`}},
+ {title:'Inside an H100 80GB GPU',render(){return `<div class="architecture-layout"><figure class="architecture-image"><img src="assets/h100-full-gpu.png" alt="NVIDIA full GH100 architecture with 144 streaming multiprocessors arranged in eight GPCs, shared L2 cache, and HBM interfaces"></figure><aside class="architecture-summary"><dl><div><dt>80 GB</dt><dd>HBM3</dd></div><div><dt>50 MB</dt><dd>shared L2 cache</dd></div><div><dt>144</dt><dd>total SMs</dd></div><div><dt>132</dt><dd>enabled SMs</dd></div><div><dt>8</dt><dd>GPCs</dd></div></dl></aside></div>`}},
+ {title:'Inside an H100 SM',render(){return `<div class="architecture-layout sm-architecture-layout"><figure class="architecture-image"><div class="sm-diagram-window"><img src="assets/h100-sm.jpg" alt="Hopper streaming multiprocessor diagram showing four processing blocks with CUDA cores, Tensor Cores, register files, and a combined L1/shared memory pool"></div></figure><aside class="architecture-summary"><p class="architecture-summary-heading">Per SM</p><dl><div><dt>128</dt><dd>CUDA cores</dd></div><div><dt>4</dt><dd>Tensor Cores</dd></div><div><dt>228 KiB</dt><dd>maximum shared memory</dd></div><div><dt>256 KiB</dt><dd>L1 / shared memory pool</dd></div><div><dt>65,536 × 32-bit</dt><dd>registers · 256 KiB</dd></div></dl></aside></div>`}},
+ {title:'Counting FLOPs',build:'matStep',maxBuild:3,render(){const step=state.matStep;return `<div class="matrix-content">${matrixIllustration(step)}<div class="matrix-count-result"><div class="formula small">${['1 multiply-add = 2 FLOPs','1 dot = 2k FLOPs','1 row = 2kn FLOPs','m rows = 2mkn FLOPs'][step]}</div><button class="step-btn" data-build="matStep" data-max="3">${step===3?'Replay':'Next'}</button></div></div>`}},
+ {title:'Weight Reuse',render(){const m=state.reuse,k=M.d,n=M.f,I=2*m*k*n/(2*(m*k+k*n+m*n));return `<div class="matrix-content">${matrixIllustration(3,Math.min(3,m))}<div class="matrix-reuse-controls"><span class="footnote">k = 4,096 · n = 11,008</span><div class="controls"><label for="reuse">Token rows <input id="reuse" type="range" min="0" max="11" step="1" value="${Math.log2(m)}"><output>${fmt(m,0)}</output></label></div></div><div class="matrix-reuse-result"><div class="formula small">I = ${frac('2mkn','2(mk + kn + mn)')}</div><div class="matrix-intensity-result"><div class="formula small memory">${fmt(I)}</div><div class="footnote">FLOP/byte</div></div></div></div>`}},
+ {title:'An Example Transformer',render(){return `<div class="content" style="margin-top:69px"><div class="chain" style="justify-content:center;gap:22px"><div class="block">Token IDs<span class="shape">S</span></div><span class="arrow">→</span><div class="block">Embedding<span class="shape">S × d</span></div><span class="arrow">→</span><div style="border:2px solid ${C.memory};padding:35px 24px;position:relative"><span class="label memory" style="position:absolute;top:-12px;left:22px;background:var(--paper);padding:0 8px">× L layers</span><div class="chain"><div class="block" style="border-color:${C.memory}">GQA Attention</div><span class="arrow">→</span><div class="block" style="border-color:${C.compute}">MLP</div></div></div><span class="arrow">→</span><div class="block">Logits<span class="shape">vocabulary</span></div></div><div class="rule" style="margin-top:69px"></div><div class="stats" style="gap:35px"><div><div class="formula">L = 32</div><div class="stat-label">layers</div></div><div><div class="formula">d = 4096</div><div class="stat-label">model width</div></div><div><div class="formula">f = 11008</div><div class="stat-label">MLP width</div></div><div><div class="formula">n<span class="sub">q</span> = 32</div><div class="stat-label">query heads</div><div class="formula" style="margin-top:24px">n<span class="sub">kv</span> = 8</div><div class="stat-label">key/value heads</div></div><div><div class="formula">h = 128</div><div class="stat-label">dimensions per head</div></div></div></div>`}},
+ {title:'Attention',build:'attentionStep',maxBuild:2,render(){const step=state.attentionStep,nq='n<span class="sub">q</span>',nkv='n<span class="sub">kv</span>',pair='S(S + 1)'+nq+'h';const row=(equation,flops,visible)=>`<div class="attention-operation" style="opacity:${visible?1:.18}"><div class="formula small">${equation}</div><div class="formula small compute">${flops}</div></div>`;return `<div class="attention-layout"><div><div class="attention-column-headings"><span>Operation</span><span>Causal matmul FLOPs / layer</span></div>${row('Q = XW<span class="sub">Q</span>','2Sd'+nq+'h',true)}${row('K = XW<span class="sub">K</span>','2Sd'+nkv+'h',true)}${row('V = XW<span class="sub">V</span>','2Sd'+nkv+'h',true)}${row('A = softmax('+frac('QKᵀ','√h')+' + mask)',pair,step>=1)}${row('Y = (AV)W<span class="sub">O</span>',pair+' + 2Sd'+nq+'h',step>=2)}<div class="formula small memory attention-total" style="opacity:${step>=2?1:.18}">Total FLOPs = 4Sd(${nq} + ${nkv})h + 2${pair}</div><div class="formula small memory attention-weights" style="opacity:${step>=2?1:.18}">Parameters = 2d(${nq} + ${nkv})h</div><div class="controls attention-build-control"><button class="step-btn" data-build="attentionStep" data-max="2">${step===2?'Reset':'Next'}</button></div></div><div class="attention-mask"><div class="label">Query rows × key columns</div><div class="heatmap">${Array.from({length:64},(_,index)=>{const r=Math.floor(index/8),c=index%8;return `<span class="${c>r?'masked':step===0?'':step===1?(r===7?'active':''):'active'}">${c>r?'−∞':'0'}</span>`}).join('')}</div><div class="footnote">Mask: 0 allowed · −∞ future</div></div></div>`}},
+ {title:'Gated MLP',render(){return `<div class="content">${svg(`${txt(70,180,'X',40,C.ink,'middle')}${txt(70,219,'S × d',20,C.muted,'middle')}${line(110,170,225,80,C.ink,2)}${line(110,170,225,260,C.ink,2)}${rect(225,30,240,100,C.computeLight,C.compute)}${txt(345,67,'W<tspan baseline-shift="sub" font-size="18">gate</tspan>',30,C.compute,'middle')}${txt(345,111,'d × f',20,C.compute,'middle')}${rect(225,210,240,100,C.computeLight,C.compute)}${txt(345,247,'W<tspan baseline-shift="sub" font-size="18">up</tspan>',30,C.compute,'middle')}${txt(345,291,'d × f',20,C.compute,'middle')}${line(465,80,585,170,C.ink,2)}${txt(495,88,'SiLU',19)}${line(465,260,585,170,C.ink,2)}${txt(615,183,'⊙',46,C.ink,'middle')}${line(650,170,765,170,C.ink,2)}${rect(765,120,240,100,C.computeLight,C.compute)}${txt(885,157,'W<tspan baseline-shift="sub" font-size="18">down</tspan>',30,C.compute,'middle')}${txt(885,201,'f × d',20,C.compute,'middle')}${line(1005,170,1135,170,C.ink,2)}${txt(1175,180,'Y',40,C.ink,'middle')}${txt(1175,219,'S × d',20,C.muted,'middle')}`,1240,350)}<div class="mlp-summary"><div class="formula small memory">Total FLOPs ≈ 6Sdf</div><div class="formula small memory">Parameters = 3df</div></div></div>`}},
+ {title:'Transformer Compute-Memory Profile',render(){return `<div class="transformer-totals"><div><div class="total-heading">Parameters</div><div class="formula memory">P = L[3df + 2d(n<span class="sub">q</span> + n<span class="sub">kv</span>)h]</div></div><div><div class="total-heading">Total FLOPs</div><div class="formula compute">≈ 2SP + 2LS(S + 1)n<span class="sub">q</span>h</div></div></div>`}},
+ {title:'Prefill',render(){return `<div class="inference-regime"><span class="formula">S ≫ 1</span><span class="formula compute">Total FLOPs ≫ Parameters</span><span class="compute">Compute bound</span></div><div class="inference-diagram">${inferenceFlow(false)}</div>`}},
+ {title:'The KV Cache',render(){return `<div class="kv-simple">${svg(`${txt(55,28,'At each layer',18,C.muted)}${txt(600,28,'T cached tokens',26,C.ink,'middle')}${txt(1170,28,'New token',18,C.memory,'middle')}${txt(70,131,'K',30,C.memory,'middle')}${txt(70,251,'V',30,C.memory,'middle')}${[95,215].map(y=>Array.from({length:8},(_,i)=>rect(160+i*102,y,82,62,C.memoryLight,C.memory)).join('')+txt(1045,y+42,'…',26,C.muted,'middle')+rect(1125,y,90,62,C.memoryLight,C.memory)).join('')}${line(1100,76,1100,294,C.line,1,'5 6')}`,1240,335)}<p class="lede" style="margin-top:64px">Efficient KV Cache Storage is a rabbit hole in itself.<br>E.g., <a href="https://arxiv.org/pdf/2507.07400" target="_blank" rel="noopener">prefix-tree KV Cache</a>.</p></div>`}},
+ {title:'Decode',render(){return `<div class="inference-regime"><span class="formula">S = 1</span><span class="formula memory">Total FLOPs ≈ 2 Parameters</span><span class="memory">Memory bound</span></div><div class="inference-diagram">${inferenceFlow(true)}</div>`}},
+ {title:'Beyond One Sequence',render(){return `<div class="beyond-simple"><div class="beyond-topic">${beyondIllustration('conversations')}<span>Multiple conversations</span></div><div class="beyond-topic">${beyondIllustration('tokens')}<span>Multi-token prediction / speculative decoding</span></div><div class="beyond-topic">${beyondIllustration('devices')}<span>Distributed inference</span></div></div>`}}
+];
+const stage=document.getElementById('stage');
+function syncDOM(oldNode,newNode){
+ if(oldNode.nodeType===3){if(oldNode.textContent!==newNode.textContent)oldNode.textContent=newNode.textContent;return}
+ if(oldNode.nodeType!==1)return;
+ for(const a of [...oldNode.attributes])if(!newNode.hasAttribute(a.name))oldNode.removeAttribute(a.name);
+ for(const a of [...newNode.attributes])if(oldNode.getAttribute(a.name)!==a.value)oldNode.setAttribute(a.name,a.value);
+ for(let i=0;i<newNode.childNodes.length;i++){
+  const n=newNode.childNodes[i],o=oldNode.childNodes[i];
+  if(!o)oldNode.appendChild(n.cloneNode(true));
+  else if(o.nodeType!==n.nodeType||o.nodeName!==n.nodeName)oldNode.replaceChild(n.cloneNode(true),o);
+  else syncDOM(o,n);
+ }
+ while(oldNode.childNodes.length>newNode.childNodes.length)oldNode.lastChild.remove();
+}
+function render(preserve=false){
+ const s=slides[state.slide];stage.classList.toggle('cover',!!s.cover);const markup=`<h1 class="slide-title">${s.title}</h1>${s.render()}`;
+ if(preserve){const draft=stage.cloneNode(false);draft.innerHTML=markup;syncDOM(stage,draft)}else stage.innerHTML=markup;
+ document.title=`${state.slide+1}. ${s.title} · Proximal`;
+ document.getElementById('counter').textContent=`${String(state.slide+1).padStart(2,'0')} / ${slides.length}`;
+ document.getElementById('progress').style.width=`${(state.slide+1)/slides.length*100}%`;
+ document.getElementById('prev').disabled=state.slide===0;document.getElementById('next').disabled=state.slide===slides.length-1;
+ history.replaceState(null,'','#'+(state.slide+1));bindSlide();
+}
+function go(i){state.slide=Math.max(0,Math.min(slides.length-1,i));render()}
+function rerenderControl(id,update){const el=document.getElementById(id);if(!el)return;el[el.type==='range'?'oninput':'onchange']=()=>{const value=el.value;update(value);render(true)}}
+function bindSlide(){
+ stage.querySelectorAll('[data-hw]').forEach(el=>{const act=()=>{state.hw=Number(el.dataset.hw);render()};el.onclick=act;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();act()}}});
+ stage.querySelectorAll('[data-build]').forEach(el=>el.onclick=()=>{const key=el.dataset.build,max=Number(el.dataset.max);if(el.dataset.advance==='true'&&state[key]>=max){go(state.slide+1);return}state[key]=(state[key]+1)%(max+1);render()});
+ rerenderControl('intensity',v=>state.intensity=10**(Number(v)/100));rerenderControl('reuse',v=>state.reuse=2**Number(v));
+ rerenderControl('kv-context',v=>state.kvContext=2**Number(v));rerenderControl('kv-heads',v=>state.kvHeads=Number(v));
+ rerenderControl('budget-hw',v=>state.hw=Number(v));rerenderControl('context',v=>state.context=2**Number(v));
+ rerenderControl('batch',v=>state.batch=2**Number(v));rerenderControl('batch-context',v=>state.batchContext=Number(v));
+}
+function scale(){const box=document.getElementById('viewport').getBoundingClientRect();stage.style.transform=`scale(${Math.min(box.width/1440,box.height/810)})`}
+function build(){const s=slides[state.slide];if(s.build&&state[s.build]<s.maxBuild){state[s.build]++;render()}else go(state.slide+1)}
+let previousFocus=null;
+function closeDialog(){document.getElementById('dialog').hidden=true;state.dialog=null;if(previousFocus)previousFocus.focus({preventScroll:true})}
+function openDialog(){previousFocus=document.activeElement;state.dialog='sources';const title=document.getElementById('dialog-title'),body=document.getElementById('dialog-content');
+ title.textContent='Sources & assumptions';body.innerHTML=`<p>Based on the three supplied resources, with hardware figures checked against vendor documentation.</p><div class="source-links">${Object.values(sources).map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t} ↗</a>`).join('')}</div><div class="source-heading" style="margin-top:44px">Accounting conventions</div><p>The example model uses BF16 storage and math. The hardware comparison labels each datatype. Arithmetic intensity and machine balance are measured in FLOP/byte. One multiply-add = two FLOPs. Decimal GB/TB for bandwidth and weight traffic, binary KiB/GiB for KV capacity. Hardware numbers are theoretical ceilings. The CPU comparison uses ordinary AVX-512 FP32 arithmetic at base clock. GPU comparisons use dense BF16 matrix arithmetic. B200 uses NVIDIA HGX/DGX peak specifications.</p><p>Example model: L=32, d=4096, f=11008, query heads=32, KV heads=8, head width=128, vocab=32000, tied embedding/output matrix. Norm and elementwise costs are omitted. Estimators show lower bounds and exclude launch, communication, and workspace costs.</p>`;
+ document.getElementById('dialog').hidden=false;document.getElementById('close-dialog').focus();
+}
+function toast(text){const t=document.getElementById('toast');t.textContent=text;t.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.hidden=true,3000)}
+async function fullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){toast('Use your browser’s full-screen command.')}}
+document.getElementById('prev').onclick=()=>go(state.slide-1);document.getElementById('next').onclick=()=>go(state.slide+1);
+document.getElementById('close-dialog').onclick=closeDialog;
+document.getElementById('dialog').onclick=e=>{if(e.target.id==='dialog')closeDialog()};
+window.addEventListener('keydown',e=>{
+ if(state.dialog){if(e.key==='Escape'){e.preventDefault();closeDialog()}else if(e.key==='Tab'){const els=[...document.getElementById('dialog').querySelectorAll('button,a[href]')];if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1).focus()}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0].focus()}}return}
+ if(/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
+ if(/^(BUTTON|A)$/.test(e.target.tagName)&&(e.key===' '||e.key==='Enter'))return;
+ switch(e.key){case'ArrowRight':case'PageDown':e.preventDefault();go(state.slide+1);break;case'ArrowLeft':case'PageUp':e.preventDefault();go(state.slide-1);break;case' ':e.preventDefault();build();break;case'Home':e.preventDefault();go(0);break;case'End':e.preventDefault();go(slides.length-1);break;case's':case'S':openDialog();break;case'f':case'F':fullscreen();break;case'b':case'B':document.body.classList.toggle('blanked');break;case'Escape':document.body.classList.remove('blanked');break;}
+});
+window.addEventListener('resize',scale);window.addEventListener('hashchange',()=>{const n=Number(location.hash.slice(1));if(Number.isInteger(n)&&n>=1&&n<=slides.length){state.slide=n-1;render()}});
+window.addEventListener('beforeprint',()=>{document.querySelectorAll('.print-slide').forEach(e=>e.remove());const saved={...state};slides.forEach((s,i)=>{const el=document.createElement('section');el.className='print-slide'+(s.cover?' cover':'');if(s.build)state[s.build]=s.maxBuild;el.innerHTML=`<h1 class="slide-title">${s.title}</h1>${s.render()}`;document.body.append(el)});Object.assign(state,saved)});
+window.addEventListener('afterprint',()=>document.querySelectorAll('.print-slide').forEach(e=>e.remove()));
+// Read-only inspection aid for repeatable QA.
+window.deck={state,slides,hardware,model:{...M,P,coreParams,kvPerToken,weightBytes},go,render,roofPlot};
+render();scale();
+</script>
+</body>
+</html>
